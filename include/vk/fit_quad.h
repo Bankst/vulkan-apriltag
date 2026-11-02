@@ -7,6 +7,8 @@
 
 #include "shared/fit_quad.h"
 
+#include <functional>
+
 namespace avk {
 
 struct FitQuad {
@@ -26,13 +28,14 @@ struct FitQuad {
     static constexpr vk::DeviceSize CORNER_BYTES =
         MAX_CLUSTERS * sizeof(QuadCorners);
 
-    // Merge rounds recorded for an image.
     static uint32_t merge_rounds(uint32_t width, uint32_t height);
 
     void record(vk::CommandBuffer cmd, FitQuadPush push,
+                vk::Buffer arena_buffer, vk::DeviceSize arena_offset,
                 support::GpuTimer *timer = nullptr) const;
 
     uint32_t wg_size;
+    support::Pipeline prepare_indirect;
     // Step 1: sort.slang.
     support::Pipeline units;
     support::Pipeline sort;
@@ -40,8 +43,7 @@ struct FitQuad {
     support::Pipeline gather;
     // Step 2: scan.slang.
     support::Pipeline scan_reduce;
-    support::Pipeline scan_tiles;
-    support::Pipeline scan;
+    support::Pipeline scan_fused;
     // Step 3: maxima.slang.
     support::Pipeline window_errors;
     support::Pipeline filter;
@@ -50,13 +52,21 @@ struct FitQuad {
     support::Pipeline search;
 
 private:
-    void record_sort(vk::CommandBuffer cmd, FitQuadPush push,
+    using IndirectFn = std::function<vk::DeviceSize(uint32_t)>;
+
+    void record_sort(vk::CommandBuffer cmd, FitQuadPush push, bool indirect,
+                     vk::Buffer buffer, const IndirectFn &ioff,
                      support::GpuTimer *timer) const;
     void record_scan(vk::CommandBuffer cmd, const FitQuadPush &push,
+                     bool indirect, vk::Buffer buffer, const IndirectFn &ioff,
                      support::GpuTimer *timer) const;
     void record_maxima(vk::CommandBuffer cmd, const FitQuadPush &push,
+                       bool indirect, vk::Buffer buffer,
+                       const IndirectFn &ioff,
                        support::GpuTimer *timer) const;
     void record_search(vk::CommandBuffer cmd, const FitQuadPush &push,
+                       bool indirect, vk::Buffer buffer,
+                       const IndirectFn &ioff,
                        support::GpuTimer *timer) const;
 };
 

@@ -47,7 +47,6 @@ const uint32_t WG_Y = 1;
 [shader("compute")]
 [numthreads(WG_X, WG_Y, 1)]
 void init(uint3 global_id: SV_DispatchThreadID) {
-    uint32_t *thresholded = (uint32_t *)pc.thresholded;
     uint32_t *scratch = (uint32_t *)pc.scratch;
     uint32_t *sizes = (uint32_t *)pc.sizes;
 
@@ -60,7 +59,8 @@ void init(uint3 global_id: SV_DispatchThreadID) {
     }
     const uint32_t image_linear_id = y * width + x;
 
-    let value = (uint32_t index) => pixel(thresholded, index);
+    let value = (uint32_t index) =>
+        pixel(pc.grayscale, pc.filtered, width, index);
     let black = (uint32_t index) => value(index) == 0;
 
     // Whether a block is "split", ie it has 0s as a diagonal pair,

@@ -54,6 +54,7 @@ apriltag_add_shaders(apriltag_vk
     shaders/fit_quad/scan.slang
     shaders/fit_quad/maxima.slang
     shaders/fit_quad/search.slang
+    shaders/fit_quad/prepare_indirect.slang
 )
 
 add_executable(avk_devices src/vk/devices.cpp)

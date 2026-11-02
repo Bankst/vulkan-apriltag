@@ -47,6 +47,7 @@ struct AprilTagPipeline {
     std::optional<support::Buffer> readback_buffer;
 
     support::Range grayscale;
+    support::Range fit_scratch_range;
     support::Range corner_count;
     support::Range corners_range;
     support::Range dropped_points_range;

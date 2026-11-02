@@ -13,12 +13,9 @@ static uint32_t groups(uint32_t n, uint32_t size) {
 }
 
 Threshold::Threshold(const support::Context &ctx)
-    : minmax(support::make_pipeline(ctx, threshold_slang, sizeof(ThresholdPush),
-                                    WG_SIZE, "minmax")),
-      filter(support::make_pipeline(ctx, threshold_slang, sizeof(ThresholdPush),
-                                    WG_SIZE, "filter")),
-      apply(support::make_pipeline(ctx, threshold_slang, sizeof(ThresholdPush),
-                                   WG_SIZE, "apply")) {}
+    : minmax_filter(support::make_pipeline(
+          ctx, threshold_slang, sizeof(ThresholdPush), WG_SIZE,
+          "minmax_filter")) {}
 
 void Threshold::record(vk::CommandBuffer cmd, const ThresholdPush &push,
                        support::GpuTimer *timer) const {
@@ -32,27 +29,11 @@ void Threshold::record(vk::CommandBuffer cmd, const ThresholdPush &push,
     const auto compute = vk::PipelineBindPoint::eCompute;
     const auto stage = vk::ShaderStageFlagBits::eCompute;
 
-    cmd.bindPipeline(compute, *minmax.pipeline);
-    cmd.pushConstants<ThresholdPush>(*minmax.layout, stage, 0, push);
+    cmd.bindPipeline(compute, *minmax_filter.pipeline);
+    cmd.pushConstants<ThresholdPush>(*minmax_filter.layout, stage, 0, push);
     cmd.dispatch(groups(tiles_w, WG_X), groups(tiles_h, WG_Y), 1);
     if (timer) {
-        timer->mark(cmd, "threshold_minmax");
-    }
-    support::compute_to_compute_barrier(cmd);
-
-    cmd.bindPipeline(compute, *filter.pipeline);
-    cmd.pushConstants<ThresholdPush>(*filter.layout, stage, 0, push);
-    cmd.dispatch(groups(tiles_w, WG_X), groups(tiles_h, WG_Y), 1);
-    if (timer) {
-        timer->mark(cmd, "threshold_filter");
-    }
-    support::compute_to_compute_barrier(cmd);
-
-    cmd.bindPipeline(compute, *apply.pipeline);
-    cmd.pushConstants<ThresholdPush>(*apply.layout, stage, 0, push);
-    cmd.dispatch(groups(tiles_w, WG_X), groups(push.height, WG_Y), 1);
-    if (timer) {
-        timer->mark(cmd, "threshold_apply");
+        timer->mark(cmd, "threshold");
     }
 }
 

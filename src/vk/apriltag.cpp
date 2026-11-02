@@ -23,10 +23,8 @@ AprilTagPipeline::AprilTagPipeline(const support::Context &ctx, uint32_t width,
 
     vk::DeviceSize size = 0;
     grayscale = support::align_range(size, pixels);
-    // Threshold:
-    const support::Range extrema = support::align_range(size, tile_bytes);
+    // Threshold → Segmentation (shared filtered buffer):
     const support::Range filtered = support::align_range(size, tile_bytes);
-    const support::Range thresholded = support::align_range(size, pixels);
     // Segmentation:
     const support::Range seg_scratch = support::align_range(size, word_bytes);
     const support::Range labels = support::align_range(size, word_bytes);
@@ -62,7 +60,7 @@ AprilTagPipeline::AprilTagPipeline(const support::Context &ctx, uint32_t width,
     const support::Range out_cluster_indexes = support::align_range(
         size, ClusterGrouping::cluster_index_bytes(width, height));
     // Quad fitting:
-    const support::Range fit_scratch =
+    fit_scratch_range =
         support::align_range(size, FitQuad::scratch_bytes(width, height));
     const support::Range quads =
         support::align_range(size, FitQuad::QUAD_BYTES);
@@ -88,12 +86,11 @@ AprilTagPipeline::AprilTagPipeline(const support::Context &ctx, uint32_t width,
     threshold_push = {.width = width,
                       .height = height,
                       .grayscale = a + grayscale.offset,
-                      .extrema = a + extrema.offset,
-                      .filtered = a + filtered.offset,
-                      .thresholded = a + thresholded.offset};
+                      .filtered = a + filtered.offset};
     segmentation_push = {.width = width,
                          .height = height,
-                         .thresholded = a + thresholded.offset,
+                         .grayscale = a + grayscale.offset,
+                         .filtered = a + filtered.offset,
                          .scratch = a + seg_scratch.offset,
                          .labels = a + labels.offset,
                          .sizes = a + sizes.offset};
@@ -133,7 +130,7 @@ AprilTagPipeline::AprilTagPipeline(const support::Context &ctx, uint32_t width,
                      .grayscale = a + grayscale.offset,
                      .keys = key_buffer.address,
                      .line_fits = line_fit_buffer.address,
-                     .scratch = a + fit_scratch.offset,
+                     .scratch = a + fit_scratch_range.offset,
                      .quads = a + quads.offset,
                      .corners = a + corners_range.offset,
                      .corner_count = a + corner_count.offset,
@@ -172,7 +169,8 @@ void AprilTagPipeline::record(vk::CommandBuffer cmd,
     support::compute_to_compute_barrier(cmd);
     grouping.record(cmd, grouping_push, timer);
     support::compute_to_compute_barrier(cmd);
-    fit_quad.record(cmd, fit_quad_push, timer);
+    fit_quad.record(cmd, fit_quad_push, *arena.buffer,
+                    fit_scratch_range.offset, timer);
 
     if (readback_buffer) {
         support::barrier(cmd, Stage::eComputeShader,

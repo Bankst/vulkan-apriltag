@@ -8,9 +8,10 @@
 struct SegmentationPush {
     uint32_t width;
     uint32_t height;
-    // width * height bytes
-    // Read as uint32_t for bandwidth reasons
-    uint64_t thresholded;
+    // width * height bytes, grayscale input image
+    uint64_t grayscale;
+    // (width/4) * (height/4) * 4 bytes, filtered tile extrema
+    uint64_t filtered;
     // width * height
     // explained in the shader
     uint64_t scratch;

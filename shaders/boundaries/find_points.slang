@@ -91,6 +91,7 @@ void test(uint32_t bit, uint32_t local_label, uint32_t test_label) {
     }
 }
 
+[require(spvGroupNonUniform)]
 [require(spvGroupNonUniformArithmetic)]
 [require(spvGroupNonUniformBallot)]
 [shader("compute")]

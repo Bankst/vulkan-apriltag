@@ -25,6 +25,25 @@ static const uint32_t SPLIT_0 = 1u << 12;
 static const uint32_t MUST_UNION_S_FIRST_0 = 1u << 13;
 static const uint32_t MUST_UNION_S_SECOND_0 = 1u << 14;
 
-uint32_t pixel(uint32_t *image, uint32_t index) {
-    return bitfieldExtract(image[index >> 2], int32_t((index & 3) * 8), 8);
+static const uint32_t THRESHOLD_MIN_CONTRAST = 5;
+
+uint32_t pixel(uint64_t grayscale_addr, uint64_t filtered_addr,
+               uint32_t width, uint32_t index) {
+    uint32_t *grayscale = (uint32_t *)grayscale_addr;
+    uint32_t *filtered = (uint32_t *)filtered_addr;
+
+    const uint32_t gray = bitfieldExtract(
+        grayscale[index >> 2], int32_t((index & 3) * 8), 8);
+
+    const uint32_t px = index % width;
+    const uint32_t py = index / width;
+    const uint32_t f = filtered[(py / 4) * (width / 4) + (px / 4)];
+    const uint32_t lo = f & 0xff;
+    const uint32_t hi = (f >> 8) & 0xff;
+
+    if (hi - lo < THRESHOLD_MIN_CONTRAST) {
+        return 127;
+    }
+    const uint32_t mid = lo + (hi - lo) / 2;
+    return gray > mid ? 255u : 0u;
 }

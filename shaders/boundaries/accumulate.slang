@@ -36,7 +36,7 @@ void main(uint3 global_id: SV_DispatchThreadID) {
     const uint32_t stride = WorkgroupCount().x * WG_SIZE * RUN;
     for (uint32_t first = global_id.x * RUN; first < total; first += stride) {
         uint32_t pending_cluster = 0;
-        ClusterAccumulator pending;
+        ClusterAccumulator pending = {};
         for (uint32_t i = first; i < min(first + RUN, total); i++) {
             const uint32_t word = points[i];
             const uint32_t x = word & 0x3fff;

@@ -45,7 +45,7 @@ struct FitQuadScanTile {
 #define FIT_QUAD_ERRORS_OFFSET(p) (uint64_t(p) * 4u)
 #define FIT_QUAD_FILTERED_OFFSET(p) (uint64_t(p) * 8u)
 
-// These all share on scratch buffer.
+// These all share one scratch buffer.
 #define FIT_QUAD_SCAN_TILES(p) ((p) / FIT_QUAD_MIN_SCAN_TILE + 2u)
 #define FIT_QUAD_MAXIMA_COUNTS_OFFSET(p)                                       \
     (uint64_t(FIT_QUAD_SCAN_TILES(p)) * 48u)
@@ -53,8 +53,26 @@ struct FitQuadScanTile {
 #define FIT_QUAD_UNIT_MAP_OFFSET(p)                                            \
     (FIT_QUAD_MAXIMA_COUNTS_OFFSET(p) + uint64_t(MAX_CLUSTERS) * 4u)
 
+// Indirect dispatch commands at the end of scratch.
+// VkDispatchIndirectCommand = 3 * uint32_t = 12 bytes each.
+// Order: sort, scan_reduce, scan_fused, window_errors, filter, maxima, search, units
+#define FIT_QUAD_INDIRECT_COUNT 8u
+#define FIT_QUAD_INDIRECT_OFFSET(p)                                            \
+    ((FIT_QUAD_UNIT_MAP_OFFSET(p) + uint64_t(FIT_QUAD_MAX_UNITS(p)) * 4u +    \
+      255u) / 256u * 256u)
+
 #define FIT_QUAD_SCRATCH_BYTES(p)                                              \
-    (FIT_QUAD_UNIT_MAP_OFFSET(p) + uint64_t(FIT_QUAD_MAX_UNITS(p)) * 4u)
+    (FIT_QUAD_INDIRECT_OFFSET(p) + FIT_QUAD_INDIRECT_COUNT * 12u)
+
+// Indirect command indices.
+#define FIT_QUAD_INDIRECT_SORT 0u
+#define FIT_QUAD_INDIRECT_SCAN_REDUCE 1u
+#define FIT_QUAD_INDIRECT_SCAN_FUSED 2u
+#define FIT_QUAD_INDIRECT_WINDOW_ERRORS 3u
+#define FIT_QUAD_INDIRECT_FILTER 4u
+#define FIT_QUAD_INDIRECT_MAXIMA 5u
+#define FIT_QUAD_INDIRECT_SEARCH 6u
+#define FIT_QUAD_INDIRECT_UNITS 7u
 
 struct FitQuadPush {
     // From cluster grouping. `points` is sorted in place.

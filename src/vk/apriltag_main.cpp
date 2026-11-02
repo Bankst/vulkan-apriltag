@@ -16,13 +16,23 @@ const char *const STAGES[] = {"threshold", "segmentation", "boundaries",
                               "cluster_grouping", "fit_quad"};
 
 struct Stats {
-    double median;
     double min;
+    double median;
+    double p90;
+    double p99;
+    double max;
 };
 
 Stats stats(std::vector<double> v) {
     std::sort(v.begin(), v.end());
-    return {v[v.size() / 2], v.front()};
+    auto pct = [&](double p) -> double {
+        double idx = p / 100.0 * (v.size() - 1);
+        size_t lo = static_cast<size_t>(idx);
+        double frac = idx - lo;
+        if (lo + 1 >= v.size()) return v.back();
+        return v[lo] * (1.0 - frac) + v[lo + 1] * frac;
+    };
+    return {v.front(), pct(50), pct(90), pct(99), v.back()};
 }
 
 void usage(const char *argv0) {
@@ -173,14 +183,17 @@ int main(int argc, char **argv) {
 
         if (iterations > 1 || warmup > 0) {
             std::cout << "timing over " << iterations << " frames after "
-                      << warmup << " warm-up frames (median / min, ms):\n";
+                      << warmup
+                      << " warm-up frames (min / med / p90 / p99 / max, ms):\n";
             auto row = [](const std::string &name,
                           const std::vector<double> &v) {
                 const Stats s = stats(v);
                 std::cout << "  " << std::left << std::setw(36) << name
                           << std::right << std::fixed << std::setprecision(3)
-                          << std::setw(9) << s.median << " / " << std::setw(9)
-                          << s.min << "\n";
+                          << std::setw(8) << s.min << " / " << std::setw(8)
+                          << s.median << " / " << std::setw(8) << s.p90
+                          << " / " << std::setw(8) << s.p99 << " / "
+                          << std::setw(8) << s.max << "\n";
             };
             for (const char *stage : STAGES) {
                 if (stage_ms.count(stage)) {

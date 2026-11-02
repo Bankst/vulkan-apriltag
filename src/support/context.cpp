@@ -63,21 +63,23 @@ Context::Context(const ContextOptions &options) {
         device, vk::CommandPoolCreateInfo{
                     .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
                     .queueFamilyIndex = queue_family});
-}
-
-void Context::submit_and_wait(
-    const std::function<void(vk::CommandBuffer)> &record) {
     vk::raii::CommandBuffers cmds(
         device,
         vk::CommandBufferAllocateInfo{.commandPool = *command_pool,
                                       .level = vk::CommandBufferLevel::ePrimary,
                                       .commandBufferCount = 1});
-    const vk::raii::CommandBuffer &cmd = cmds[0];
+    cmd = std::move(cmds[0]);
+    fence = vk::raii::Fence(device, vk::FenceCreateInfo{});
+}
+
+void Context::submit_and_wait(
+    const std::function<void(vk::CommandBuffer)> &record) {
+    cmd.reset();
+    device.resetFences(*fence);
     cmd.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     record(*cmd);
     cmd.end();
 
-    vk::raii::Fence fence(device, vk::FenceCreateInfo{});
     const vk::CommandBufferSubmitInfo cmd_info{.commandBuffer = *cmd};
     queue.submit2(vk::SubmitInfo2{.commandBufferInfoCount = 1,
                                   .pCommandBufferInfos = &cmd_info},

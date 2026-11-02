@@ -8,17 +8,11 @@
 struct ThresholdPush {
     uint32_t width;
     uint32_t height;
-    // width * height
-    // bytes of a gray scale image
+    // width * height bytes of a grayscale image
     uint64_t grayscale;
-    // (width / 4) * (height / 4)
-    // stores lo and hi value in the block
-    uint64_t extrema;
-    // same as above
-    // min lo and max hi in 3 x 3 window
+    // (width/4) * (height/4) * 4 bytes
+    // min lo and max hi in 3x3 tile window
     uint64_t filtered;
-    // width * height thresholded output
-    uint64_t thresholded;
 };
 
 #endif

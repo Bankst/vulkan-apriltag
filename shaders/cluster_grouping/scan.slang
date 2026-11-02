@@ -17,6 +17,7 @@ uint3 slot_values(uint32_t slot, ClusterAccumulator acc) {
 }
 
 // First pass, a reduction to get the counts filtering out the valid subgroups.
+[require(spvGroupNonUniform)]
 [require(spvGroupNonUniformArithmetic)]
 [require(spvGroupNonUniformBallot)]
 [shader("compute")]
@@ -54,6 +55,7 @@ void reduce(uint3 group_id: SV_GroupID) {
 }
 
 // Second pass, do a scan to figure out where to put the tiles.
+[require(spvGroupNonUniform)]
 [require(spvGroupNonUniformArithmetic)]
 [require(spvGroupNonUniformBallot)]
 [shader("compute")]

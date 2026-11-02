@@ -22,9 +22,7 @@ struct Threshold {
     void record(vk::CommandBuffer cmd, const ThresholdPush &push,
                 support::GpuTimer *timer = nullptr) const;
 
-    support::Pipeline minmax;
-    support::Pipeline filter;
-    support::Pipeline apply;
+    support::Pipeline minmax_filter;
 };
 
 } // namespace avk

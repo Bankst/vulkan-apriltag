@@ -144,7 +144,7 @@ void scan_tiles(uint3 local_id: SV_GroupThreadID) {
     }
 }
 
-// Combine the combined value with the one points and write the output.
+// Original 2nd-pass scan: reads precomputed tile prefixes.
 [shader("compute")]
 [numthreads(WG_SIZE, 1, 1)]
 void scan(uint3 local_id: SV_GroupThreadID, uint3 group_id: SV_GroupID) {
@@ -156,6 +156,41 @@ void scan(uint3 local_id: SV_GroupThreadID, uint3 group_id: SV_GroupID) {
     for (uint32_t tile = group_id.x; tile < tile_count;
          tile += WorkgroupCount().x) {
         const FitQuadScanTile carry = tiles[tile];
+
+        const uint32_t first = tile * SCAN_TILE + lid * POINTS_PER_INVOCATION;
+        scan_values[lid] = reduce_points(first, total, false);
+        group_scan(lid);
+
+        FitQuadScanTile acc = combine(carry, lid == 0 ? segmented_identity()
+                                                      : scan_values[lid - 1]);
+        for (uint32_t k = 0; k < POINTS_PER_INVOCATION; k++) {
+            if (first + k < total) {
+                acc = combine(acc, load_point(first + k, total, false));
+                fits[first + k] = moments_of(acc);
+            }
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+}
+
+// Fused scan_tiles + scan: each WG computes its own tile prefix by reading
+// all prior tile sums, then does the per-point scan. Eliminates the separate
+// scan_tiles dispatch. Portable — no inter-WG synchronization.
+[shader("compute")]
+[numthreads(WG_SIZE, 1, 1)]
+void scan_fused(uint3 local_id: SV_GroupThreadID, uint3 group_id: SV_GroupID) {
+    FitQuadScanTile *tiles = tile_sums(pc);
+    LineFitPoint *fits = line_fits(pc);
+    const uint32_t lid = local_id.x;
+    const uint32_t total = ((ClusterTotals *)pc.totals)->clustered_point_count;
+    const uint32_t tile_count = (total + SCAN_TILE - 1) / SCAN_TILE;
+    for (uint32_t tile = group_id.x; tile < tile_count;
+         tile += WorkgroupCount().x) {
+        // Compute prefix for this tile by combining all prior tile sums.
+        FitQuadScanTile carry = segmented_identity();
+        for (uint32_t t = 0; t < tile; t++) {
+            carry = combine(carry, tiles[t]);
+        }
 
         const uint32_t first = tile * SCAN_TILE + lid * POINTS_PER_INVOCATION;
         scan_values[lid] = reduce_points(first, total, false);

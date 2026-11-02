@@ -31,6 +31,8 @@ struct Context {
     uint32_t queue_family = 0;
     vk::raii::Queue queue{nullptr};
     vk::raii::CommandPool command_pool{nullptr};
+    vk::raii::CommandBuffer cmd{nullptr};
+    vk::raii::Fence fence{nullptr};
 
     DeviceReport report;
     DeviceCaps caps;
