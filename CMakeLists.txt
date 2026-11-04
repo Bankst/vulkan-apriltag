@@ -62,3 +62,6 @@ target_link_libraries(avk_devices PRIVATE apriltag_vk)
 
 add_executable(vulktan_apriltag src/vk/apriltag_main.cpp src/quad_decoding.cpp)
 target_link_libraries(vulktan_apriltag PRIVATE apriltag_vk apriltag Threads::Threads)
+
+add_executable(avk_batch src/vk/apriltag_batch.cpp src/quad_decoding.cpp)
+target_link_libraries(avk_batch PRIVATE apriltag_vk apriltag Threads::Threads)
