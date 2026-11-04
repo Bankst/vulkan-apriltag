@@ -26,12 +26,12 @@ static Detection to_detection(const apriltag_detection_t *det,
     Detection d{.id = det->id,
                 .hamming = det->hamming,
                 .decision_margin = det->decision_margin,
-                .center = {det->c[0], det->c[1]},
+                .center = {det->c[0] - 0.5, det->c[1] - 0.5},
                 .corners = {},
                 .blob_index = blob_index};
     for (int k = 0; k < 4; k++) {
-        d.corners[k][0] = det->p[k][0];
-        d.corners[k][1] = det->p[k][1];
+        d.corners[k][0] = det->p[k][0] - 0.5;
+        d.corners[k][1] = det->p[k][1] - 0.5;
     }
     return d;
 }

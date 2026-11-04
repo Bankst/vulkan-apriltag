@@ -108,7 +108,7 @@ def parse_cpu_output(text):
     return detections, timing
 
 
-def corner_distance(det_corners, gt_corners):
+def corner_distance(det_corners, gt_corners, debias=0.0):
     """Mean Euclidean distance between detected and ground-truth corners,
     trying all 4 rotations in both winding orders and picking the best
     match (corner ordering conventions differ between detectors)."""
@@ -120,12 +120,14 @@ def corner_distance(det_corners, gt_corners):
             for k in range(4):
                 gx, gy = gt[(k + rot) % 4]
                 dx, dy = det_corners[k]
+                dx -= debias
+                dy -= debias
                 total += math.sqrt((dx - gx) ** 2 + (dy - gy) ** 2)
             best = min(best, total / 4.0)
     return best
 
 
-def evaluate(detections, ground_truth, corner_threshold=5.0):
+def evaluate(detections, ground_truth, debias=0.0):
     """Compare detections against ground truth.
 
     Returns dict with tp, fp, fn, and per-tag corner errors.
@@ -144,7 +146,7 @@ def evaluate(detections, ground_truth, corner_threshold=5.0):
     corner_errors = []
     for d in detections:
         if d["id"] in gt_corners_by_id:
-            err = corner_distance(d["corners"], gt_corners_by_id[d["id"]])
+            err = corner_distance(d["corners"], gt_corners_by_id[d["id"]], debias)
             corner_errors.append({"id": d["id"], "error_px": err})
 
     return {
@@ -204,6 +206,8 @@ def main():
     parser.add_argument("--dataset-dir", default="bench/dataset")
     parser.add_argument("--summary", action="store_true")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--debias", type=float, default=0.0,
+                        help="Shift detected corners by -N px (corner-convention offset)")
     args = parser.parse_args()
 
     entries = load_metadata(args.dataset_dir, args.split)
@@ -279,7 +283,7 @@ def main():
                 continue
 
             detections, timing = parse_fn(stdout)
-            ev = evaluate(detections, entry)
+            ev = evaluate(detections, entry, debias=args.debias)
 
             total_tp += ev["tp"]
             total_fp += ev["fp"]
@@ -309,18 +313,22 @@ def main():
         total_gt = total_tp + total_fn
         precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) else 0
         recall = total_tp / total_gt if total_gt else 0
-        mean_corner_err = (
-            sum(e["error_px"] for e in all_corner_errors) / len(all_corner_errors)
-            if all_corner_errors
-            else float("nan")
-        )
+        errs_sorted = sorted(e["error_px"] for e in all_corner_errors) if all_corner_errors else []
+        mean_corner_err = sum(errs_sorted) / len(errs_sorted) if errs_sorted else float("nan")
+        median_corner_err = errs_sorted[len(errs_sorted) // 2] if errs_sorted else float("nan")
+        p95_corner_err = errs_sorted[int(len(errs_sorted) * 0.95)] if errs_sorted else float("nan")
+        max_corner_err = errs_sorted[-1] if errs_sorted else float("nan")
 
         print(f"\n--- {label} Summary ---")
         print(f"  Images: {len(entries)}  Errors: {errors}")
         print(f"  Tags: TP={total_tp} FP={total_fp} FN={total_fn}")
         print(f"  Precision: {precision:.4f}  Recall: {recall:.4f}")
-        if all_corner_errors:
-            print(f"  Mean corner error: {mean_corner_err:.2f} px")
+        if errs_sorted:
+            print(f"  Corner error (px): median={median_corner_err:.4f}  "
+                  f"mean={mean_corner_err:.4f}  p95={p95_corner_err:.4f}  "
+                  f"max={max_corner_err:.4f}")
+        if args.debias != 0.0:
+            print(f"  (debias: {args.debias} px applied to detected corners)")
 
         print(f"\n  Per-scenario breakdown:")
         print(f"  {'Scenario':<25s} {'Images':>6s} {'TP':>5s} {'FP':>5s} {'FN':>5s} {'Recall':>7s} {'MeanErr':>8s}")
